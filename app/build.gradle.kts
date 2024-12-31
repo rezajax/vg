@@ -37,6 +37,8 @@ android {
     buildFeatures {
         compose = true
     }
+
+
 }
 
 tasks.register("hi") {
@@ -53,7 +55,6 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.security.crypto.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -65,5 +66,14 @@ dependencies {
 
     implementation(libs.jsch)
     implementation(libs.kotlinx.coroutines.android)
+
+/*    implementation(libs.sshd.socks) // Replace with the latest version
+    implementation(libs.sshd.core) // Include the core library*/
+
+    implementation(libs.netty.all)
+
+    implementation ("org.apache.mina:mina-core:2.2.4")
+
+
 
 }

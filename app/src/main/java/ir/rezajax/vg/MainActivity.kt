@@ -20,6 +20,10 @@ import ir.rezajax.vg.ui.theme.VgTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.Socket
 import java.security.KeyStore
 import java.util.Properties
 import javax.crypto.KeyGenerator
@@ -50,6 +54,11 @@ class MainActivity : ComponentActivity() {
                     remotePort = 1080
                 )
             }*/
+
+            val socks5Server = Socks5Server()
+
+            // فراخوانی متد start() برای راه‌اندازی سرور
+            socks5Server.start()
 
             var sshManager: SshTunnelManager? by remember { mutableStateOf(null) }
 
@@ -122,10 +131,33 @@ class MainActivity : ComponentActivity() {
 
                         Button(
                             onClick = {
-                                println("start badvpn")
+                                lifecycleScope.launch {
+                                    sshManager?.startUdpToTcpForwarding(
+                                        udpPort = 12345,
+                                        tcpHost = "127.0.0.1",
+                                        tcpPort = 7300 //badvpn udpgw server port
+                                    ) {
+//                                        println(it) // Replace with your UI log update logic
+                                        log = it
+                                    }
+                                    }
+                                println("hi")
                             }
                         ) {
                             Text ("Start Badvpn")
+                        }
+
+                        Button(
+                            onClick = {
+                                lifecycleScope.launch {
+                                    sshManager?.startSocks5Proxy(localPort = 1080) {
+                                        log = it
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text("Start SOCKS5 Proxy")
                         }
                     }
                 }
@@ -196,7 +228,65 @@ class SshTunnelManager(
             }
         }
     }
+
+
+    suspend fun startUdpToTcpForwarding(udpPort: Int, tcpHost: String, tcpPort: Int, onLogUpdate: (String) -> Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                val udpSocket = DatagramSocket(udpPort) // Listen for UDP packets
+                val buffer = ByteArray(1024) // Buffer to hold UDP packets
+
+                onLogUpdate("Listening for UDP packets on port $udpPort...")
+
+                while (true) {
+                    // Receive UDP packet
+                    val udpPacket = DatagramPacket(buffer, buffer.size)
+                    udpSocket.receive(udpPacket)
+
+                    val receivedData = String(udpPacket.data, 0, udpPacket.length)
+                    val senderAddress = udpPacket.address
+                    val senderPort = udpPacket.port
+
+                    onLogUpdate("Received UDP packet from $senderAddress:$senderPort -> $receivedData")
+
+                    // Forward the data over TCP
+                    try {
+                        val tcpSocket = Socket(InetAddress.getByName(tcpHost), tcpPort)
+                        val outputStream = tcpSocket.getOutputStream()
+
+                        outputStream.write(receivedData.toByteArray())
+                        outputStream.flush()
+                        tcpSocket.close()
+
+                        onLogUpdate("Forwarded data to TCP $tcpHost:$tcpPort")
+                    } catch (e: Exception) {
+                        onLogUpdate("Error forwarding data to TCP: $e")
+                    }
+                }
+            } catch (e: Exception) {
+                onLogUpdate("Error in UDP to TCP forwarding: $e")
+            }
+        }
+    }
+
+
+    suspend fun startSocks5Proxy(localPort: Int, onLogUpdate: (String) -> Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                onLogUpdate("Starting SOCKS5 proxy on 0.0.0.0:$localPort...")
+
+                // SOCKS5 setup on all interfaces
+                session?.setPortForwardingL("0.0.0.0", localPort, host, 22)
+
+                onLogUpdate("SOCKS5 proxy is running on 0.0.0.0:$localPort")
+            } catch (e: Exception) {
+                onLogUpdate("Error starting SOCKS5 proxy: $e")
+            }
+        }
+    }
 }
+
+
 
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
