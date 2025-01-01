@@ -3,6 +3,7 @@ package ir.rezajax.vg
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.KeyStore
 import java.util.Properties
@@ -38,22 +40,6 @@ class MainActivity : ComponentActivity() {
             var host by remember { mutableStateOf("107.175.73.102") }
             var password by remember { mutableStateOf("") }
 
-            /*// Start SSH connection in lifecycleScope
-            LaunchedEffect(Unit) {
-                val sshManager = SshTunnelManager(
-                    username = username,
-                    host = host,
-                    port = 22,
-                    password = password,
-                    onLogUpdate = { log = it } // Callback to update the log
-                )
-
-                sshManager.connect(
-                    localPort = 1080,
-                    remoteHost = "localhost",
-                    remotePort = 1080
-                )
-            }*/
 
             val socks5Server = Socks5Server()
 
@@ -110,7 +96,7 @@ class MainActivity : ComponentActivity() {
                                         password = password,
                                         onLogUpdate = { log = it }
                                     )
-                                    sshManager?.connect(localPort = 1080, remoteHost = "localhost", remotePort = 1080)
+                                    sshManager?.connect(localPort = 1888, remoteHost = "localhost", remotePort = 1888)
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
@@ -132,10 +118,11 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 lifecycleScope.launch {
-                                    sshManager?.startUdpToTcpForwarding(
-                                        udpPort = 12345,
-                                        tcpHost = "127.0.0.1",
-                                        tcpPort = 7300 //badvpn udpgw server port
+                                    sshManager?.startUdpPacketCapture(
+                                        udpPort = 1888,
+//                                        tcpHost = "127.0.0.1",
+//                                        tcpHost = "107.175.73.102",
+//                                        tcpPort = 7300 //badvpn udpgw server port
                                     ) {
 //                                        println(it) // Replace with your UI log update logic
                                         log = it
@@ -197,6 +184,7 @@ class SshTunnelManager(
 
                 // Setup remote forwarding (equivalent to -R)
                 session?.setPortForwardingR(remotePort, remoteHost, remotePort)
+                session?.setPortForwardingR(7300, remoteHost, 7300)
 
                 onLogUpdate("SSH Tunnel established successfully.")
             } catch (e: Exception) {
@@ -230,6 +218,146 @@ class SshTunnelManager(
     }
 
 
+
+
+
+    suspend fun startUdpPacketCapture(
+        udpPort: Int,
+        onLogUpdate: (String) -> Unit
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                // Bind to 0.0.0.0 to listen on all interfaces
+                val udpSocket = DatagramSocket(InetSocketAddress("0.0.0.0", udpPort))
+
+                val buffer = ByteArray(udpSocket.receiveBufferSize) // Dynamically determine buffer size
+                onLogUpdate("Listening for UDP packets on port $udpPort...")
+
+                while (true) {
+                    // Receive UDP packet
+                    val udpPacket = DatagramPacket(buffer, buffer.size)
+                    udpSocket.receive(udpPacket)
+
+                    Log.d("udpSocket.receive", udpPacket.toString())
+
+                    val packetData = udpPacket.data
+                    val packetLength = udpPacket.length
+
+                    // Log the raw packet data
+                    val rawPacketData = packetData.copyOfRange(0, packetLength)
+                    val rawPacketText = rawPacketData.joinToString(" ") { it.toString(16).padStart(2, '0') }
+                    onLogUpdate("Captured UDP packet: $rawPacketText")
+
+                    // If you want to log it as a string (assuming it's ASCII or UTF-8 encoded)
+                    try {
+                        val packetText = String(packetData, 0, packetLength, Charsets.UTF_8)
+                        onLogUpdate("Captured UDP packet (Text): $packetText")
+                    } catch (e: Exception) {
+                        onLogUpdate("Error interpreting UDP packet as text: $e")
+                    }
+                }
+            } catch (e: Exception) {
+                onLogUpdate("Error in UDP packet capture: $e")
+            }
+        }
+    }
+
+    // old 2
+    /*
+    *   suspend fun startSocks5UdpToTcpForwarding(
+        udpPort: Int,
+        tcpHost: String,
+        tcpPort: Int,
+        onLogUpdate: (String) -> Unit
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                // Bind to 0.0.0.0 to listen on all interfaces
+                val udpSocket = DatagramSocket(InetSocketAddress("0.0.0.0", udpPort))
+
+                val buffer = ByteArray(udpSocket.receiveBufferSize) // Dynamically determine buffer size
+                onLogUpdate("Listening for SOCKS5 UDP packets on port $udpPort...")
+
+                while (true) {
+                    // Receive UDP packet
+                    val udpPacket = DatagramPacket(buffer, buffer.size)
+                    udpSocket.receive(udpPacket)
+
+                    val packetData = udpPacket.data
+                    val packetLength = udpPacket.length
+
+                    // Parse SOCKS5 UDP header
+                    if (packetLength >= 10) { // Minimum size for a valid SOCKS5 UDP packet
+                        val reserved = packetData.copyOfRange(0, 2)
+                        val fragment = packetData[2]
+                        val addressType = packetData[3].toInt()
+
+                        if (reserved.contentEquals(byteArrayOf(0x00, 0x00)) && fragment == 0.toByte()) {
+                            val address: String
+                            val port: Int
+
+                            // Parse address and port based on address type
+                            when (addressType) {
+                                0x01 -> { // IPv4
+                                    address = "${packetData[4].toInt() and 0xFF}.${packetData[5].toInt() and 0xFF}.${packetData[6].toInt() and 0xFF}.${packetData[7].toInt() and 0xFF}"
+                                    port = ((packetData[8].toInt() and 0xFF) shl 8) or (packetData[9].toInt() and 0xFF)
+                                }
+                                0x03 -> { // Domain name
+                                    val domainLength = packetData[4].toInt() and 0xFF
+                                    address = String(packetData, 5, domainLength)
+                                    port = ((packetData[5 + domainLength].toInt() and 0xFF) shl 8) or (packetData[6 + domainLength].toInt() and 0xFF)
+                                }
+                                0x04 -> { // IPv6
+                                    address = (4..19).joinToString(":") { packetData[it].toInt().toString(16) }
+                                    port = ((packetData[20].toInt() and 0xFF) shl 8) or (packetData[21].toInt() and 0xFF)
+                                }
+                                else -> {
+                                    onLogUpdate("Unknown address type in SOCKS5 UDP packet: addressType = $addressType")
+                                    continue
+                                }
+                            }
+
+                            // Extract data after the SOCKS5 header
+                            val dataStartIndex = when (addressType) {
+                                0x01 -> 10
+                                0x03 -> 7 + (packetData[4].toInt() and 0xFF)
+                                0x04 -> 22
+                                else -> continue
+                            }
+                            val payload = packetData.copyOfRange(dataStartIndex, packetLength)
+                            val payloadText = String(payload)
+
+                            onLogUpdate("Captured SOCKS5 UDP packet: $address:$port -> $payloadText")
+
+                            // Forward the payload to TCP
+                            try {
+                                val tcpSocket = Socket(InetAddress.getByName(tcpHost), tcpPort)
+                                val outputStream = tcpSocket.getOutputStream()
+
+                                outputStream.write(payload)
+                                outputStream.flush()
+                                tcpSocket.close()
+
+                                onLogUpdate("Forwarded data to TCP $tcpHost:$tcpPort")
+                            } catch (e: Exception) {
+                                onLogUpdate("Error forwarding data to TCP: $e")
+                            }
+                        } else {
+                            onLogUpdate("Invalid SOCKS5 UDP packet header")
+                        }
+                    } else {
+                        onLogUpdate("Received invalid packet (too short)")
+                    }
+                }
+            } catch (e: Exception) {
+                onLogUpdate("Error in SOCKS5 UDP to TCP forwarding: $e")
+            }
+        }
+    }*/
+
+    // old 1
+    /*
+    *
     suspend fun startUdpToTcpForwarding(udpPort: Int, tcpHost: String, tcpPort: Int, onLogUpdate: (String) -> Unit) {
         withContext(Dispatchers.IO) {
             try {
@@ -268,6 +396,9 @@ class SshTunnelManager(
             }
         }
     }
+*/
+
+
 
 
     suspend fun startSocks5Proxy(localPort: Int, onLogUpdate: (String) -> Unit) {
