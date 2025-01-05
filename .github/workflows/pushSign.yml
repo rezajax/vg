@@ -1,0 +1,73 @@
+name: publishSign
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: ls project
+        run: ls -ltrh
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+
+
+      # behind priject
+      - name: Decode and Save Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > ./rezSign.jks
+
+
+      #      - name: Decode and Save Keystore
+      #        run: |
+      #          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/my-release-key.jks
+      #
+      #
+
+
+      - run: ls -ltrh
+
+
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build Signed APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleNightly
+
+
+      - name: Set date variable
+        id: date
+        run: echo "DATE=$(date +'%y%m%d')" >> $GITHUB_ENV
+
+      - name: Upload APK to GitHub Releases
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: app/build/outputs/apk/nightly/app-nightly.apk
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: nightly-${{ github.run_number }}-${{ env.DATE }}
+          name: Release ${{ github.run_number }}-${{ env.DATE }}
+          #          tag: ${{ github.ref_name }}
+          #          name: Release ${{ github.ref_name }}
+          body: |
+            This release includes the latest changes in the application.
+          draft: false
+          prerelease: false

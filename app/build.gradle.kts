@@ -35,7 +35,55 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
+        buildConfig = true // Enable BuildConfig feature
         compose = true
+    }
+
+/*    signingConfigs {
+        create("nightly") {
+            storeFile = rootProject.file("rezSign.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }*/
+
+    signingConfigs {
+        create("nightly") {
+            storeFile = rootProject.file("rezSign.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
+    val gitInfo = "0.1"
+
+    buildTypes {
+        create("nightly") {
+            signingConfig = signingConfigs.getByName("nightly")
+            versionNameSuffix = "-${defaultConfig.versionName}-$gitInfo-nightly"
+            applicationIdSuffix = ".nightly"
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            isMinifyEnabled = true
+            isShrinkResources = true
+            buildConfigField("boolean", "DEVELOPMENT", "true")
+        }
+
+        getByName("debug") {
+            versionNameSuffix = "-${defaultConfig.versionName}-$gitInfo"
+            buildConfigField("boolean", "DEVELOPMENT", "true")
+            applicationIdSuffix = ".debug"
+        }
+
+        getByName("release") {
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            )
+            isMinifyEnabled = true
+            isShrinkResources = true
+            buildConfigField("boolean", "DEVELOPMENT",  "false")
+        }
     }
 
 
@@ -73,6 +121,9 @@ dependencies {
     implementation(libs.netty.all)
 
     implementation ("org.apache.mina:mina-core:2.2.4")
+
+
+
 
 
 
