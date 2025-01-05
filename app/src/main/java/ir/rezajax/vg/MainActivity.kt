@@ -96,7 +96,7 @@ class MainActivity : ComponentActivity() {
                                         password = password,
                                         onLogUpdate = { log = it }
                                     )
-                                    sshManager?.connect(localPort = 1888, remoteHost = "localhost", remotePort = 1888)
+                                    sshManager?.connect(localPort = 1080, remoteHost = "localhost", remotePort = 1080)
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
