@@ -65,8 +65,8 @@ android {
             versionNameSuffix = "-${defaultConfig.versionName}-$gitInfo-nightly"
             applicationIdSuffix = ".nightly"
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            isMinifyEnabled = true
-            isShrinkResources = true
+//            isMinifyEnabled = true
+//            isShrinkResources = true
             buildConfigField("boolean", "DEVELOPMENT", "true")
         }
 
