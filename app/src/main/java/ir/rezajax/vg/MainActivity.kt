@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
             var host by remember { mutableStateOf("107.175.73.102") }
             var password by remember { mutableStateOf("") }
 
+            var portRemoteAndLocal by remember { mutableStateOf("1080") }
 
             val socks5Server = Socks5Server()
 
@@ -76,6 +77,13 @@ class MainActivity : ComponentActivity() {
                             visualTransformation = PasswordVisualTransformation()
                         )
 
+                        TextField(
+                            value = portRemoteAndLocal,
+                            onValueChange = { portRemoteAndLocal = it },
+                            label = { Text("Port want to Forward") },
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        )
+
                         // Display log output
                         Text(
                             text = log,
@@ -96,7 +104,7 @@ class MainActivity : ComponentActivity() {
                                         password = password,
                                         onLogUpdate = { log = it }
                                     )
-                                    sshManager?.connect(localPort = 1080, remoteHost = "localhost", remotePort = 1080)
+                                    sshManager?.connect(localPort = 1080, remoteHost = "localhost", remotePort = portRemoteAndLocal.toInt())
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
