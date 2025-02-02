@@ -145,9 +145,10 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 lifecycleScope.launch {
-                                    sshManager?.startSocks5Proxy(localPort = 1080) {
-                                        log = it
-                                    }
+                                    newStartSocks5Proxy(
+                                        localPort = 1123,
+                                        onLogUpdate = { log = it }
+                                    )
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
