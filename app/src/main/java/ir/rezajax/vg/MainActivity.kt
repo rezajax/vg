@@ -1,5 +1,6 @@
 package ir.rezajax.vg
 
+import android.os.Build
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -145,10 +146,12 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 lifecycleScope.launch {
-                                    newStartSocks5Proxy(
-                                        localPort = 1123,
-                                        onLogUpdate = { log = it }
-                                    )
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        newStartSocks5Proxy2(
+                                            localPort = 1123,
+                                            onLogUpdate = { log = it }
+                                        )
+                                    }
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
