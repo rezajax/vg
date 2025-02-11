@@ -147,23 +147,19 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Button(
-                            onClick = {
-                                lifecycleScope.launch {
-                                    if (isServerRunning) {
-                                        Socks5ServerManager.stopServer { log = it }
-                                    } else {
-                                        Socks5ServerManager.startServer(
-                                            localPort = portRemoteAndLocal.toInt(),
-                                            onLogUpdate = { log = it }
-                                        )
-                                    }
-                                    isServerRunning = !isServerRunning
+                        onClick = {
+                                if (isServerRunning) {
+                                    Socks5ServerManager.stopServer { log = it }
+                                } else {
+                                    Socks5ServerManager.startServer(portRemoteAndLocal.toInt()) { log = it }
                                 }
+                                isServerRunning = !isServerRunning
                             },
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Text(if (isServerRunning) "Stop SOCKS5 Proxy" else "Start SOCKS5 Proxy")
                         }
+
                     }
                 }
             }
