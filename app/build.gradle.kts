@@ -94,6 +94,7 @@ tasks.register("hi") {
 }
 
 dependencies {
+    implementation ("com.github.bbottema:java-socks-proxy-server:4.1.2")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

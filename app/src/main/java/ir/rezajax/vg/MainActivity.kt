@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
 
             var portRemoteAndLocal by remember { mutableStateOf("1080") }
 
+            var isServerRunning by remember { mutableStateOf(false) }
+
+
             val socks5Server = Socks5Server()
 
             // فراخوانی متد start() برای راه‌اندازی سرور
@@ -146,17 +149,20 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 lifecycleScope.launch {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        newStartSocks5Proxy2(
-                                            localPort = 1123,
+                                    if (isServerRunning) {
+                                        Socks5ServerManager.stopServer { log = it }
+                                    } else {
+                                        Socks5ServerManager.startServer(
+                                            localPort = portRemoteAndLocal.toInt(),
                                             onLogUpdate = { log = it }
                                         )
                                     }
+                                    isServerRunning = !isServerRunning
                                 }
                             },
                             modifier = Modifier.padding(16.dp)
                         ) {
-                            Text("Start SOCKS5 Proxy")
+                            Text(if (isServerRunning) "Stop SOCKS5 Proxy" else "Start SOCKS5 Proxy")
                         }
                     }
                 }
